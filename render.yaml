@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: ghl-custom-fields-api
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: GHL_API_KEY
+        sync: false
+      - key: GHL_LOCATION_ID
+        sync: false
+      - key: API_SECRET
+        sync: false
+      - key: NODE_ENV
+        value: production
+    healthCheckPath: /health
