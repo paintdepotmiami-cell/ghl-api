@@ -11,7 +11,7 @@ class GHLService {
   constructor() {
     this.apiKey = process.env.GHL_API_KEY;
     this.locationId = process.env.GHL_LOCATION_ID;
-    
+
     if (!this.apiKey) {
       console.warn('⚠️  GHL_API_KEY not set in environment');
     }
@@ -34,41 +34,61 @@ class GHLService {
   }
 
   /**
-   * Map incoming data to GHL contact format
-   * Separates standard fields from custom fields
+   * Map incoming data to GHL contact format for UPDATE (existing contact)
+   * Does NOT include locationId as GHL rejects it for updates
    */
-  mapToGHLFormat(data) {
-    // Standard GHL contact fields
-    const standardFields = {
-      firstName: data.first_name,
-      lastName: data.last_name,
-      email: data.email,
-      phone: data.phone,
-      address1: data.address1,
-      city: data.city,
-      state: data.state,
-      postalCode: data.postal_code,
-      locationId: this.locationId
-    };
+  mapToGHLFormatForUpdate(data) {
+    // Standard GHL contact fields (without locationId)
+    const standardFields = {};
 
-    // Custom fields - everything else goes here
-    // GHL expects array of { key, value } or { id, value }
-    const customFieldsData = [
+    if (data.first_name) standardFields.firstName = data.first_name;
+    if (data.last_name) standardFields.lastName = data.last_name;
+    if (data.email) standardFields.email = data.email;
+    if (data.phone) standardFields.phone = data.phone;
+    if (data.address1) standardFields.address1 = data.address1;
+    if (data.city) standardFields.city = data.city;
+    if (data.state) standardFields.state = data.state;
+    if (data.postal_code) standardFields.postalCode = data.postal_code;
+
+    // Custom fields
+    const customFieldsData = this.buildCustomFields(data);
+
+    return {
+      ...standardFields,
+      customFields: customFieldsData
+    };
+  }
+
+  /**
+   * Map incoming data to GHL contact format for UPSERT (new or existing)
+   * Includes locationId as required for upsert
+   */
+  mapToGHLFormatForUpsert(data) {
+    const payload = this.mapToGHLFormatForUpdate(data);
+    payload.locationId = this.locationId;
+    return payload;
+  }
+
+  /**
+   * Build custom fields array from data
+   */
+  buildCustomFields(data) {
+    return [
       { key: 'language', value: data.language },
       { key: 'spam', value: data.spam },
       { key: 'rent', value: data.rent },
       { key: 'project_type', value: data.project_type },
       { key: 'scope', value: data.scope },
       { key: 'current_surface', value: data.current_surface },
-      { key: 'approx_sqft', value: String(data.approx_sqft) },
-      { key: 'confirmed_sqft', value: String(data.confirmed_sqft) },
+      { key: 'approx_sqft', value: data.approx_sqft != null ? String(data.approx_sqft) : null },
+      { key: 'confirmed_sqft', value: data.confirmed_sqft != null ? String(data.confirmed_sqft) : null },
       { key: 'material_preference', value: data.material_preference },
       { key: 'pattern_selected', value: data.pattern_selected },
       { key: 'color_selected', value: data.color_selected },
-      { key: 'pavers_price', value: String(data.pavers_price) },
+      { key: 'pavers_price', value: data.pavers_price != null ? String(data.pavers_price) : null },
       { key: 'turf_name', value: data.turf_name },
-      { key: 'turf_price', value: String(data.turf_price) },
-      { key: 'instant_quote', value: String(data.instant_quote) },
+      { key: 'turf_price', value: data.turf_price != null ? String(data.turf_price) : null },
+      { key: 'instant_quote', value: data.instant_quote != null ? String(data.instant_quote) : null },
       { key: 'detalle_estimado', value: data.detalle_estimado },
       { key: 'city_permits', value: data.city_permits },
       { key: 'hoa_permits', value: data.hoa_permits },
@@ -82,18 +102,13 @@ class GHLService {
       { key: 'hoa_required_documents', value: data.hoa_required_documents },
       { key: 'permit_update', value: data.permit_update },
       { key: 'estimate_send', value: data.estimate_send },
-      { key: 'estimate', value: String(data.estimate) },
-      { key: 'descuento_ofrecido', value: String(data.descuento_ofrecido) },
+      { key: 'estimate', value: data.estimate != null ? String(data.estimate) : null },
+      { key: 'descuento_ofrecido', value: data.descuento_ofrecido != null ? String(data.descuento_ofrecido) : null },
       { key: 'cierre_confirmado', value: data.cierre_confirmado },
       { key: 'start_timeframe', value: data.start_timeframe },
-      { key: 'pipeline_stage', value: data.pipeline_stage },
+      { key: 'pipeline_inferred_status', value: data.pipeline_inferred_status },
       { key: 'comentarios__notas_adicionales', value: data.comentarios__notas_adicionales }
     ].filter(field => field.value !== undefined && field.value !== null);
-
-    return {
-      ...standardFields,
-      customFields: customFieldsData
-    };
   }
 
   /**
@@ -103,10 +118,10 @@ class GHLService {
    */
   async updateContact(contactId, data) {
     const url = `${GHL_API_BASE}/contacts/${contactId}`;
-    const payload = this.mapToGHLFormat(data);
-    
+    const payload = this.mapToGHLFormatForUpdate(data);
+
     console.log(`📤 Updating contact ${contactId} with ${payload.customFields.length} custom fields`);
-    
+
     try {
       const response = await axios.put(url, payload, this.getConfig());
       console.log(`✅ Contact ${contactId} updated successfully`);
@@ -132,10 +147,10 @@ class GHLService {
    */
   async upsertContact(data) {
     const url = `${GHL_API_BASE}/contacts/upsert`;
-    const payload = this.mapToGHLFormat(data);
-    
+    const payload = this.mapToGHLFormatForUpsert(data);
+
     console.log(`📤 Upserting contact with email: ${data.email}`);
-    
+
     try {
       const response = await axios.post(url, payload, this.getConfig());
       const contactId = response.data?.contact?.id;
@@ -162,7 +177,7 @@ class GHLService {
    */
   async getContact(contactId) {
     const url = `${GHL_API_BASE}/contacts/${contactId}`;
-    
+
     try {
       const response = await axios.get(url, this.getConfig());
       return {
