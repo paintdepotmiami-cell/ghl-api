@@ -7,11 +7,24 @@ const router = express.Router();
 /**
  * POST /api/agent/:contactId/update
  * Receive raw ||| delimited output from CRM Data Governance Agent
- * Parse it and update the contact in GHL
+ * Accepts:
+ *   - JSON: { "rawOutput": "..." }
+ *   - Raw text body (Content-Type: text/plain)
  */
-router.post('/:contactId/update', async (req, res) => {
+router.post('/:contactId/update', express.text({ type: '*/*' }), async (req, res) => {
     const { contactId } = req.params;
-    const { rawOutput } = req.body;
+
+    // Handle both JSON and raw text body
+    let rawOutput;
+    if (typeof req.body === 'string') {
+        // Raw text was sent
+        rawOutput = req.body;
+    } else if (typeof req.body === 'object' && req.body.rawOutput) {
+        // JSON with rawOutput field
+        rawOutput = req.body.rawOutput;
+    } else {
+        rawOutput = null;
+    }
 
     if (!contactId) {
         return res.status(400).json({
@@ -20,16 +33,18 @@ router.post('/:contactId/update', async (req, res) => {
         });
     }
 
-    if (!rawOutput) {
+    if (!rawOutput || rawOutput.trim() === '') {
         return res.status(400).json({
             success: false,
-            error: 'rawOutput is required - provide the agent\'s ||| delimited output'
+            error: 'Body cannot be empty - send the agent output as raw text or JSON { "rawOutput": "..." }'
         });
     }
 
     try {
         // Parse the agent output
         console.log(`📥 Received agent output for contact ${contactId}`);
+        console.log(`📄 Raw output:\n${rawOutput.substring(0, 200)}...`);
+
         const parsedData = parseAgentOutput(rawOutput);
 
         // Validate parsed data
