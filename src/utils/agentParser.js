@@ -5,8 +5,11 @@
 
 // Mapping from agent output field names to GHL custom field keys
 const FIELD_MAPPING = {
-    'Pipeline Name': null, // Read-only, don't update
-    'Pipeline Stage': 'pipeline_stage',
+    // READ-ONLY fields (from opportunity context - do not update)
+    'Pipeline Name': null,
+    'Pipeline Stage': null,
+
+    // Writable custom fields
     'Project Type': 'project_type',
     'Scope': 'scope',
     'Approximate Sqft': 'approx_sqft',
