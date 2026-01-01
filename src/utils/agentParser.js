@@ -63,8 +63,16 @@ const NUMERIC_FIELDS = [
 function parseAgentOutput(agentOutput) {
     const result = {};
 
+    // Handle escaped newlines (when JSON encodes the string)
+    let cleanedOutput = agentOutput
+        .replace(/\\n/g, '\n')  // Replace escaped \n with real newlines
+        .replace(/\\r/g, '')    // Remove escaped \r
+        .trim();
+
     // Split by newlines and process each line
-    const lines = agentOutput.trim().split('\n');
+    const lines = cleanedOutput.split('\n');
+
+    console.log(`🔍 Parsing ${lines.length} lines from agent output`);
 
     for (const line of lines) {
         // Skip empty lines
