@@ -16,11 +16,23 @@ router.post('/:contactId/update', express.text({ type: '*/*' }), async (req, res
 
     // Handle both JSON and raw text body
     let rawOutput;
+
     if (typeof req.body === 'string') {
-        // Raw text was sent
-        rawOutput = req.body;
+        // Try to parse as JSON first
+        try {
+            const parsed = JSON.parse(req.body);
+            if (parsed && parsed.rawOutput) {
+                rawOutput = parsed.rawOutput;
+            } else {
+                // Not JSON with rawOutput, treat as raw text
+                rawOutput = req.body;
+            }
+        } catch (e) {
+            // Not valid JSON, treat as raw text
+            rawOutput = req.body;
+        }
     } else if (typeof req.body === 'object' && req.body.rawOutput) {
-        // JSON with rawOutput field
+        // JSON object with rawOutput field
         rawOutput = req.body.rawOutput;
     } else {
         rawOutput = null;
